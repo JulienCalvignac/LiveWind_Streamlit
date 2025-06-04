@@ -75,15 +75,24 @@ df.info()
 # df_melted = df_melted.set_index("date_measurement")
 
 df = df.set_index("time")
+def kmh_to_kt(kmh):
+    """Convertit des km/h en noeuds (nds)."""
+    return kmh / 1.852
 
+# Conversion des colonnes de vitesse du vent en nds
+df["wind_speed_min_nds"] = df["wind_speed_min"].apply(kmh_to_kt)
+df["wind_speed_avg_nds"] = df["wind_speed_avg"].apply(kmh_to_kt)
+df["wind_speed_max_nds"] = df["wind_speed_max"].apply(kmh_to_kt)
 print(df.info)
 # print(df_melted.info)
 # st.line_chart(df)
 
-fig = px.bar(df, x=df.index, y=["wind_speed_min","wind_speed_avg", "wind_speed_max"])
+fig = px.line(df, x=df.index, y=["wind_speed_min_nds","wind_speed_avg_nds", "wind_speed_max_nds"], markers=True)
 # fig = px.line(df_melted, x=df_melted.index, y="measurement_value", color="measure_type", markers="True")
 # fig.show()
 st.plotly_chart(fig, use_container_width=True)
+
+# st.line_chart(df, x=df.index, y=["wind_speed_min","wind_speed_avg", "wind_speed_max"])
 lat = df.iloc[0, 0]
 lon = df.iloc[0, 1]
 st.write(lat)
