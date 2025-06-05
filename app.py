@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import json
 from urllib3 import request
+from datetime import datetime
 # from bs4 import BeautifulSoup
 #import time
 #import os
 import plotly.express as px
-
+import pytz
+from sklearn.linear_model import LinearRegression
 
 station_id = "1671" #Club ULM Héric 1671
 
@@ -27,54 +29,20 @@ print(response.status)  #printing status code of the answer
 # print(response.data)
 resp_json=response.json()   #coverting answer into dictionnary
 
-# printing some data for live measurement
-
-# print("Station ID:", resp_json["data"]["id"])
-# print("Station Name:", resp_json["data"]["meta"]["name"])
-
-# print("Date mesure:", resp_json["data"]["measurements"]["date"])
-# print("Direction vent:", resp_json["data"]["measurements"]["wind_heading"])
-# print("Vitesse vent min:", resp_json["data"]["measurements"]["wind_speed_min"])
-# print("Vitesse vent max:", resp_json["data"]["measurements"]["wind_speed_max"])
-# print("Vitesse vent avg:", resp_json["data"]["measurements"]["wind_speed_avg"])
-# print("Date location:", resp_json["data"]["location"]["date"])
-
 print(type(resp_json))  #checking type of the response
 print(resp_json.keys())  #checking number of rows in the data part of the response
-# with open("resp_json_output.json", "w", encoding="utf-8") as f:
-#     json.dump(resp_json, f, ensure_ascii=False, indent=4)
+
 st.write("Live wind measurement: Heric weather station")
+# slider_timehorizon = st.slider("History duration")
+zoomhistory_select = st.segmented_control("Time history", ["1h","2h","4h","8h"], selection_mode="single", default="4h")
+
 
 # === loading json reply data into a DataFrame
 data = resp_json["data"]                                 #getting data part of the json reply as a dicitonnary
 df = pd.DataFrame(data, columns = resp_json["legend"])   #initiating dataframe with data and columns names
                       #naming columns after DF initilization
 
-print(df.head(5))
-df.info()
 
-# === dataframe for lvie measurements
-# df=pd.DataFrame({
-#                 "date_measurement": [resp_json["data"]["measurements"]["date"]],
-#                 "wind_speed_min": [resp_json["data"]["measurements"]["wind_speed_min"]],
-#                 "wind_speed_avg": [resp_json["data"]["measurements"]["wind_speed_avg"]],
-#                 "wind_speed_max": [resp_json["data"]["measurements"]["wind_speed_max"]]
-#                 })
-# df=pd.DataFrame({
-#                 "date_measurement": [resp_json["data"]["measurements"]["date"]],
-#                 "measure": "wind_speed_avg",
-#                 "value": [resp_json["data"]["measurements"]["wind_speed_avg"]],
-#                 })
-
-# df=df.append({
-#                 "date_measurement": [resp_json["data"]["measurements"]["date"]],
-#                 "measure": "wind_speed_min",
-#                 "value": [resp_json["data"]["measurements"]["wind_speed_min"]],
-#                 })
-# df_melted = df.melt(id_vars="date_measurement", value_vars=["wind_speed_min", "wind_speed_max", "wind_speed_avg"], var_name="measure_type", value_name="measurement_value")
-# df_melted = df_melted.set_index("date_measurement")
-
-df = df.set_index("time")
 def kmh_to_kt(kmh):
     """Convertit des km/h en noeuds (nds)."""
     return kmh / 1.852
@@ -83,27 +51,56 @@ def kmh_to_kt(kmh):
 df["wind_speed_min_nds"] = df["wind_speed_min"].apply(kmh_to_kt)
 df["wind_speed_avg_nds"] = df["wind_speed_avg"].apply(kmh_to_kt)
 df["wind_speed_max_nds"] = df["wind_speed_max"].apply(kmh_to_kt)
-print(df.info)
-# print(df_melted.info)
-# st.line_chart(df)
 
-fig = px.line(df, x=df.index, y=["wind_speed_min_nds","wind_speed_avg_nds", "wind_speed_max_nds"], markers=True)
-# fig = px.line(df_melted, x=df_melted.index, y="measurement_value", color="measure_type", markers="True")
-# fig.show()
+df['time'] = pd.to_datetime(df['time'])
+print(df.head(5))
+
+def get_start_time(depth_hours):
+    start_time = (datetime.now()-pd.Timedelta(hours=depth_hours))
+    print(start_time)
+    timezone = pytz.timezone("Europe/Paris")
+    start_time_aware = timezone.localize(start_time)
+    print(start_time_aware)
+    return start_time_aware
+
+def update_df(df, start_time_aware):
+    df_filtered=df[df['time'] > start_time_aware]
+    df_filtered.info()
+    return df_filtered
+
+start_time_aware = get_start_time(int(zoomhistory_select[0]))
+df_filtered = update_df(df, start_time_aware)
+model_reglin_wingavg = LinearRegression()
+# model_reglin_wingavg.fit(df_filtered.time,df_filtered.wind_speed_max_nds)
+
+if zoomhistory_select:
+   start_time_aware = get_start_time(int(zoomhistory_select[0]))
+   df_filtered = update_df(df, start_time_aware)
+   print(df_filtered.describe())
+
+df_filtered.describe()
+
+fig = px.line(df_filtered, x="time", y=["wind_speed_min_nds","wind_speed_avg_nds", "wind_speed_max_nds"], markers=True)
+fig.add_hline(y=df_filtered["wind_speed_max_nds"].mean(), line_dash="dash", line_color="red", annotation_text="Moyenne", annotation_position="top left")
+fig.add_hline(y=df_filtered["wind_speed_avg_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
+fig.add_hline(y=df_filtered["wind_speed_min_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
 st.plotly_chart(fig, use_container_width=True)
 
+
+wind_polar = px.bar_polar(df_filtered, r="wind_speed_avg", theta="wind_heading",
+                   color="wind_speed_avg", template="plotly_dark",
+                   color_discrete_sequence= px.colors.sequential.Plasma_r)
+st.plotly_chart(wind_polar, use_container_width=True)
+
 # st.line_chart(df, x=df.index, y=["wind_speed_min","wind_speed_avg", "wind_speed_max"])
-lat = df.iloc[0, 0]
-lon = df.iloc[0, 1]
+lat = df.iloc[0, 1]
+lon = df.iloc[0, 2]
 st.write(lat)
 st.write(lon)
 
 map_data=pd.DataFrame([[lat,lon]], columns=['lat', 'lon'])
-
 st.map(map_data)
 
-print(df)
-slider_dummy = st.slider("This is a slider")
 input_dummy = st.text_input("Please leave a message:", key="message")
 # print(st.session_state.message)
 
