@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
-import json
+# import json
 from urllib3 import request
-from datetime import datetime
+from datetime import datetime,timezone,timedelta
 # from bs4 import BeautifulSoup
 #import time
 #import os
 import plotly.express as px
-import pytz
-from sklearn.linear_model import LinearRegression
+# import pytz #was causing compatibilties issues with python version
+# from sklearn.linear_model import LinearRegression
 
 station_id = "1671" #Club ULM Héric 1671
 
@@ -56,10 +56,10 @@ df['time'] = pd.to_datetime(df['time'])
 print(df.head(5))
 
 def get_start_time(depth_hours):
-    start_time = (datetime.now()-pd.Timedelta(hours=depth_hours))
-    print(start_time)
-    timezone = pytz.timezone("Europe/Paris")
-    start_time_aware = timezone.localize(start_time)
+    
+    tz_local = timezone(timedelta(hours=2),name= "LocalSpring") #fixing local timezone for 
+    start_time_aware = (datetime.now(tz=tz_local)-pd.Timedelta(hours=depth_hours))
+
     print(start_time_aware)
     return start_time_aware
 
@@ -70,7 +70,7 @@ def update_df(df, start_time_aware):
 
 start_time_aware = get_start_time(int(zoomhistory_select[0]))
 df_filtered = update_df(df, start_time_aware)
-model_reglin_wingavg = LinearRegression()
+# model_reglin_wingavg = LinearRegression()
 # model_reglin_wingavg.fit(df_filtered.time,df_filtered.wind_speed_max_nds)
 
 if zoomhistory_select:
@@ -79,11 +79,20 @@ if zoomhistory_select:
    print(df_filtered.describe())
 
 df_filtered.describe()
+dict_wind_measurements={
+    "wind_speed_min_nds": "Vitesse min",
+    "wind_speed_max_nds": "Rafales",
+    "wind_speed_avg_nds": "Vitesse moyenne"
+}
 
-fig = px.line(df_filtered, x="time", y=["wind_speed_min_nds","wind_speed_avg_nds", "wind_speed_max_nds"], markers=True)
+fig = px.line(df_filtered, x="time", y=["wind_speed_min_nds","wind_speed_avg_nds", "wind_speed_max_nds"], markers=True, labels=dict_wind_measurements)
 fig.add_hline(y=df_filtered["wind_speed_max_nds"].mean(), line_dash="dash", line_color="red", annotation_text="Moyenne", annotation_position="top left")
 fig.add_hline(y=df_filtered["wind_speed_avg_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
 fig.add_hline(y=df_filtered["wind_speed_min_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
+fig.update_layout(
+    xaxis_title="Temps",  # Set the label for the x-axis
+    yaxis_title="Vitesse [nds]",  # Set the label for the y-axis
+)
 st.plotly_chart(fig, use_container_width=True)
 
 
