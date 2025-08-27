@@ -90,8 +90,8 @@ fig.add_hline(y=df_filtered["wind_speed_max_nds"].mean(), line_dash="dash", line
 fig.add_hline(y=df_filtered["wind_speed_avg_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
 fig.add_hline(y=df_filtered["wind_speed_min_nds"].mean(), line_dash="dash", line_color="blue", annotation_text="Moyenne", annotation_position="top left")
 fig.update_layout(
-    xaxis_title="Temps",  # Set the label for the x-axis
-    yaxis_title="Vitesse [nds]",  # Set the label for the y-axis
+    xaxis_title="Horaire",  # Set the label for the x-axis
+    yaxis_title="Vitesse Vent [nds]",  # Set the label for the y-axis
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -104,12 +104,12 @@ st.plotly_chart(wind_polar, use_container_width=True)
 # st.line_chart(df, x=df.index, y=["wind_speed_min","wind_speed_avg", "wind_speed_max"])
 lat = df.iloc[0, 1]
 lon = df.iloc[0, 2]
-st.write(lat)
-st.write(lon)
+# st.write(lat)
+# st.write(lon)
 
 map_data=pd.DataFrame([[lat,lon]], columns=['lat', 'lon'])
 st.map(map_data)
 
-input_dummy = st.text_input("Please leave a message:", key="message")
+# input_dummy = st.text_input("Please leave a message:", key="message")
 # print(st.session_state.message)
 
